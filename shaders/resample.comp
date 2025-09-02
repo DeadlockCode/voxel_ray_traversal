@@ -1,0 +1,41 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, rgba8) readonly uniform image2D inputImage;
+layout(set = 0, binding = 1, rgba8) writeonly uniform image2D outputImage;
+
+void main() {
+    ivec2 outputCoords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 inputSize = imageSize(inputImage);
+    ivec2 outputSize = imageSize(outputImage);
+
+    if (outputCoords.x >= outputSize.x || outputCoords.y >= outputSize.y) {
+        return;
+    }
+
+    vec2 ratio = vec2(inputSize) / vec2(outputSize);
+    vec2 inputRegionMin = vec2(outputCoords) * ratio;
+    vec2 inputRegionMax = vec2(outputCoords + 1) * ratio;
+
+    vec4 areaWeightedSum = vec4(0.0);
+    for (int y = int(floor(inputRegionMin.y)); y < int(ceil(inputRegionMax.y)); ++y) {
+        for (int x = int(floor(inputRegionMin.x)); x < int(ceil(inputRegionMax.x)); ++x) {
+            vec2 pixelMin = vec2(x, y);
+            vec2 pixelMax = pixelMin + 1.0;
+            vec2 overlapMin = max(pixelMin, inputRegionMin);
+            vec2 overlapMax = min(pixelMax, inputRegionMax);
+            vec2 overlapSize = max(overlapMax - overlapMin, 0.0);
+            float overlapArea = overlapSize.x * overlapSize.y;
+
+            areaWeightedSum += imageLoad(inputImage, ivec2(x, y)) * overlapArea;
+        }
+    }
+
+    vec2 inputRegionSize = inputRegionMax - inputRegionMin;
+    float totalArea = inputRegionSize.x * inputRegionSize.y;
+
+    vec4 areaWeightedAvg = areaWeightedSum / totalArea;
+    imageStore(outputImage, outputCoords, areaWeightedAvg);
+}
