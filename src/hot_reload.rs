@@ -4,8 +4,8 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -13,8 +13,8 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use vulkano::{
     device::{Device, DeviceOwned},
     pipeline::{
-        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
         ComputePipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo,
+        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
     },
     shader::{ShaderModule, ShaderModuleCreateInfo},
 };
@@ -84,10 +84,10 @@ impl HotReloadComputePipeline {
         let cloned_reload = reload.clone();
         let mut watcher =
             notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-                if let Ok(event) = res {
-                    if event.kind.is_modify() {
-                        cloned_reload.store(true, Ordering::Relaxed);
-                    }
+                if let Ok(event) = res
+                    && event.kind.is_modify()
+                {
+                    cloned_reload.store(true, Ordering::Relaxed);
                 }
             })
             .unwrap();

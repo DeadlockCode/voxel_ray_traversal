@@ -6,6 +6,7 @@ use ply_rs::{
     ply::{Property, PropertyAccess},
 };
 use std::io::Write;
+use std::path::Path;
 
 type Vec2 = Vector2<f32>;
 type Vec3 = Vector3<f32>;
@@ -13,7 +14,7 @@ type Vec4 = Vector4<f32>;
 
 type UVec3 = Vector3<usize>;
 
-pub fn ply_to_voxels(path: &str, resolution: u32) -> Vec<u128> {
+pub fn ply_to_voxels(path: impl AsRef<Path>, resolution: u32) -> Vec<u128> {
     print!("Voxelizing... ");
 
     let start = std::time::Instant::now();
@@ -27,7 +28,7 @@ pub fn ply_to_voxels(path: &str, resolution: u32) -> Vec<u128> {
     voxels
 }
 
-fn parse_ply(path: &str) -> Mesh {
+fn parse_ply(path: impl AsRef<Path>) -> Mesh {
     let file = std::fs::File::open(path).unwrap();
     let mut reader = std::io::BufReader::new(file);
 
@@ -65,9 +66,8 @@ fn parse_ply(path: &str) -> Mesh {
         }
 
         fn set_property(&mut self, key: String, property: Property) {
-            match (key.as_ref(), property) {
-                ("vertex_indices", Property::ListInt(vec)) => self.inner.copy_from_slice(&vec),
-                _ => (),
+            if let ("vertex_indices", Property::ListInt(vec)) = (key.as_ref(), property) {
+                self.inner.copy_from_slice(&vec)
             }
         }
     }
@@ -83,12 +83,12 @@ fn parse_ply(path: &str) -> Mesh {
         match element.name.as_ref() {
             "vertex" => {
                 vertices = vertex_parser
-                    .read_payload_for_element(&mut reader, &element, &header)
+                    .read_payload_for_element(&mut reader, element, &header)
                     .unwrap();
             }
             "face" => {
                 triangles = face_parser
-                    .read_payload_for_element(&mut reader, &element, &header)
+                    .read_payload_for_element(&mut reader, element, &header)
                     .unwrap();
             }
             _ => panic!(),
@@ -276,7 +276,7 @@ impl Progress {
         let mut stdout = std::io::stdout();
         stdout.queue(cursor::Hide).unwrap();
         stdout.queue(cursor::SavePosition).unwrap();
-        stdout.write_all(format!("0%").as_bytes()).unwrap();
+        stdout.write_all("0%".as_bytes()).unwrap();
         stdout.flush().unwrap();
         Self { length, index: 0 }
     }

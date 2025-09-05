@@ -1,8 +1,9 @@
 use egui_winit_vulkano::{
-    egui::{self, Color32},
     Gui, GuiConfig,
+    egui::{self, Color32},
 };
 use nalgebra::{Matrix4, Vector3, Vector4};
+use std::path::PathBuf;
 use std::{
     f64::consts::{FRAC_PI_2, TAU},
     path::Path,
@@ -10,34 +11,34 @@ use std::{
     time::{Duration, Instant},
 };
 use vulkano::{
+    Validated, Version, VulkanError, VulkanLibrary,
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
     command_buffer::{
-        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, BlitImageInfo,
-        ClearColorImageInfo, CommandBufferUsage, CopyBufferToImageInfo,
-        PrimaryCommandBufferAbstract,
+        AutoCommandBufferBuilder, BlitImageInfo, ClearColorImageInfo, CommandBufferUsage,
+        CopyBufferToImageInfo, PrimaryCommandBufferAbstract,
+        allocator::StandardCommandBufferAllocator,
     },
     descriptor_set::{
-        allocator::StandardDescriptorSetAllocator, DescriptorSet, WriteDescriptorSet,
+        DescriptorSet, WriteDescriptorSet, allocator::StandardDescriptorSetAllocator,
     },
     device::{
-        physical::PhysicalDeviceType, Device, DeviceCreateInfo, DeviceExtensions, DeviceFeatures,
-        Queue, QueueCreateInfo, QueueFlags,
+        Device, DeviceCreateInfo, DeviceExtensions, DeviceFeatures, Queue, QueueCreateInfo,
+        QueueFlags, physical::PhysicalDeviceType,
     },
     format::Format,
     image::{
+        Image, ImageCreateInfo, ImageType, ImageUsage,
         sampler::Filter,
         view::{ImageView, ImageViewCreateInfo},
-        Image, ImageCreateInfo, ImageType, ImageUsage,
     },
     instance::{Instance, InstanceCreateFlags, InstanceCreateInfo},
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     swapchain::{
-        acquire_next_image, PresentMode, Surface, Swapchain, SwapchainCreateInfo,
-        SwapchainPresentInfo,
+        PresentMode, Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo,
+        acquire_next_image,
     },
     sync::GpuFuture,
-    Validated, Version, VulkanError, VulkanLibrary,
 };
 use winit::{
     application::ApplicationHandler,
@@ -69,7 +70,7 @@ enum RenderMode {
 }
 
 impl RenderMode {
-    pub const ALL: &[RenderMode] = &[
+    pub const ALL: &'static [RenderMode] = &[
         RenderMode::Coord,
         RenderMode::Steps,
         RenderMode::Normal,
@@ -86,13 +87,14 @@ enum Model {
 }
 
 impl Model {
-    pub const ALL: &[Model] = &[Model::Bunny, Model::Dragon, Model::Armadillo];
+    pub const ALL: &'static [Model] = &[Model::Bunny, Model::Dragon, Model::Armadillo];
 
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> impl AsRef<Path> {
+        let buf = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("models");
         match self {
-            Model::Bunny => "models/bunny_remeshed.ply",
-            Model::Dragon => "models/dragon.ply",
-            Model::Armadillo => "models/armadillo.ply",
+            Model::Bunny => buf.join("bunny_remeshed.ply"),
+            Model::Dragon => buf.join("dragon.ply"),
+            Model::Armadillo => buf.join("armadillo.ply"),
         }
     }
 }
@@ -127,12 +129,12 @@ fn get_swapchain_images(
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
     let caps = device
         .physical_device()
-        .surface_capabilities(&surface, Default::default())
+        .surface_capabilities(surface, Default::default())
         .unwrap();
 
     let image_format = device
         .physical_device()
-        .surface_formats(&surface, Default::default())
+        .surface_formats(surface, Default::default())
         .unwrap()[0]
         .0;
 
@@ -316,15 +318,13 @@ fn get_voxel_set(
         .get(1)
         .unwrap()
         .clone();
-    let set = DescriptorSet::new(
+    DescriptorSet::new(
         descriptor_set_allocator.clone(),
         layout.clone(),
         [WriteDescriptorSet::image_view(0, image_view)],
         [],
     )
-    .unwrap();
-
-    set
+    .unwrap()
 }
 
 fn load_icon(icon: &[u8]) -> Icon {
@@ -464,10 +464,11 @@ impl App {
         let (memory_allocator, descriptor_set_allocator, command_buffer_allocator) =
             get_allocators(&device);
 
+        let shaders_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
         let render_pipeline =
-            HotReloadComputePipeline::new(device.clone(), Path::new("shaders\\traverse.comp"));
+            HotReloadComputePipeline::new(device.clone(), &shaders_dir.join("traverse.comp"));
         let resample_pipeline =
-            HotReloadComputePipeline::new(device.clone(), Path::new("shaders\\resample.comp"));
+            HotReloadComputePipeline::new(device.clone(), &shaders_dir.join("resample.comp"));
 
         let voxel_resolution = INITIAL_VOXEL_RESOLUTION;
         let model = Model::Bunny;
@@ -689,11 +690,11 @@ impl App {
 
                 ui.add(
                     egui::Slider::new(&mut self.future_voxel_resolution, 8..=3200)
-                    .custom_formatter(|n, _| format!("{}", (n as u32 + 7) / 8 * 8))
-                    .custom_parser(|s| s.parse::<u32>().ok().map(|n| (n + 7) / 8 * 8).map(|n| n as f64))
+                    .custom_formatter(|n, _| format!("{}", (n as u32).div_ceil(8) * 8))
+                    .custom_parser(|s| s.parse::<u32>().ok().map(|n| n.div_ceil(8) * 8).map(|n| n as f64))
                     .text("Voxel Resolution")
                 );
-                self.future_voxel_resolution = (self.future_voxel_resolution + 7) / 8 * 8;
+                self.future_voxel_resolution = self.future_voxel_resolution.div_ceil(8) * 8;
                 ui.colored_label(Color32::LIGHT_RED, "Warning: Setting voxel resolution too high might crash the program.");
                 ui.label("The maximum possible resolution will depend on your GPU's Vulkan limits. This could be mitigated by splitting the world into multiple textures but that's not included in this simple example.");
                 ui.horizontal(|ui| {
@@ -805,7 +806,11 @@ impl App {
             .unwrap();
         unsafe {
             builder
-                .dispatch([(render_extent[0] + 7) / 8, (render_extent[1] + 7) / 8, 1])
+                .dispatch([
+                    render_extent[0].div_ceil(8),
+                    render_extent[1].div_ceil(8),
+                    1,
+                ])
                 .unwrap();
         }
 
@@ -823,8 +828,8 @@ impl App {
         unsafe {
             builder
                 .dispatch([
-                    (resample_extent[0] + 7) / 8,
-                    (resample_extent[1] + 7) / 8,
+                    resample_extent[0].div_ceil(8),
+                    resample_extent[1].div_ceil(8),
                     1,
                 ])
                 .unwrap();
