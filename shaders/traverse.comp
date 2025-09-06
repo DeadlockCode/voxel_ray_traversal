@@ -10,7 +10,7 @@ const uint DEPTH = 4;
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PushConstants {
-	mat4 pixelToRay;
+    mat4 pixelToRay;
     uint voxel_resolution;
     uint render_mode;
 } pc;
@@ -43,7 +43,7 @@ bool readVoxel(uvec3 coord, inout uvec4 texel, inout ivec3 texel_coord) {
         texel_coord = new_texel_coord;
         texel = imageLoad(voxelImage, texel_coord);
     }
-    return bool(texel[coord.x % 4] >> ((coord.y % 4) + (coord.z % 8) * 4) & 1);
+    return bool(texel[coord.x % 4] >> ((coord.y % 4) + (coord.z % 8) * 4) & 1u);
 }
 
 const float FLT_MAX = 3.4028235e+38;
@@ -84,17 +84,17 @@ bool traversal(vec3 origin, vec3 dir, out vec3 color, inout uint steps) {
             stepped_axis = 2;
         }
     }
-    
+
     origin += dir * tmin;
     uvec3 coord = uvec3(clamp(floor(origin), vec3(0), vec3(pc.voxel_resolution - 1)));
     vec3 t = (coord + 0.5 * (1 + sgn_dir) - origin) * inv_dir;
-    
+
     uvec3 ustep = uvec3(ivec3(sgn_dir));
     vec3 delta = inv_dir * sgn_dir;
 
     ivec3 texel_coord = ivec3(coord.x / 4, coord.y / 4, coord.z / 8);
     uvec4 texel = imageLoad(voxelImage, texel_coord);
-    bool instantHit = bool(texel[coord.x % 4] >> ((coord.y % 4) + (coord.z % 8) * 4) & 1);
+    bool instantHit = bool(texel[coord.x % 4] >> ((coord.y % 4) + (coord.z % 8) * 4) & 1u);
     if (!instantHit)
     while (true) {
         steps++;
@@ -122,9 +122,9 @@ bool traversal(vec3 origin, vec3 dir, out vec3 color, inout uint steps) {
         }
 
         if (any(greaterThanEqual(coord, uvec3(pc.voxel_resolution))))
-            return false;
+        return false;
         if (readVoxel(coord, texel, texel_coord))
-            break;
+        break;
     }
 
     vec3 mask = vec3(0);
@@ -132,14 +132,14 @@ bool traversal(vec3 origin, vec3 dir, out vec3 color, inout uint steps) {
     float t_inside = dot(t, mask) - dot(delta, mask);
 
     switch (pc.render_mode) {
-    case COORD:
+        case COORD:
         color = vec3(coord) / vec3(pc.voxel_resolution - 1);
         break;
-    case NORMAL:
+        case NORMAL:
         vec3 normal = -mask * sgn_dir;
         color = max(normal.xyz, 0) - min(normal.yxz + normal.zyx, 0);
         break;
-    case UV:
+        case UV:
         vec3 hit = origin + dir * t_inside;
         vec3 local_hit = hit - coord;
         vec2 uv;
@@ -152,7 +152,7 @@ bool traversal(vec3 origin, vec3 dir, out vec3 color, inout uint steps) {
         }
         color = vec3(uv, 0);
         break;
-    case DEPTH:
+        case DEPTH:
         float depth = (tmin + t_inside) * length(dir);
         color = vec3(1 / (1 + depth / pc.voxel_resolution)) + vec3(0.3, 0.0, 0.7) / 256;
         break;
@@ -165,7 +165,7 @@ void main() {
     ivec2 imageSize = imageSize(targetImage);
 
     if (any(greaterThanEqual(pixelCoord, imageSize)))
-        return;
+    return;
 
     vec3 o = pc.pixelToRay[3].xyz;
     vec3 d = mat3(pc.pixelToRay) * vec3(pixelCoord, 1);

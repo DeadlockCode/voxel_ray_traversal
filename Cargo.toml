@@ -1,7 +1,8 @@
 [package]
 name = "voxel_ray_traversal"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.86.0"
 
 [dependencies]
 vulkano = "0.35.2"
