@@ -95,8 +95,9 @@ bool traversal(vec3 origin, vec3 dir, out vec3 color, inout uint steps) {
     ivec3 texel_coord = ivec3(coord.x / 4, coord.y / 4, coord.z / 8);
     uvec4 texel = imageLoad(voxelImage, texel_coord);
     bool instantHit = bool(texel[coord.x % 4] >> ((coord.y % 4) + (coord.z % 8) * 4) & 1u);
+    uint max_steps = pc.voxel_resolution * 3u;
     if (!instantHit)
-    while (true) {
+    while (steps < max_steps) {
         steps++;
 
         if (t.x < t.y) {

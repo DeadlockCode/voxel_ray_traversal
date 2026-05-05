@@ -57,7 +57,7 @@ mod voxelize;
 use crate::camera::Camera;
 use crate::hot_reload::HotReloadComputePipeline;
 
-const INITIAL_VOXEL_RESOLUTION: u32 = 24;
+const INITIAL_VOXEL_RESOLUTION: u32 = 128;
 const INITIAL_WINDOW_RESOLUTION: PhysicalSize<u32> = PhysicalSize::new(960, 960);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -653,7 +653,10 @@ impl App {
         rcx.gui.immediate_ui(|gui| {
             let ctx = gui.context();
 
-            egui::Window::new("Settings").show(&ctx, |ui| {
+            // Settings Window - Anchored to Top Right
+            egui::Window::new("Settings")
+                .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-10.0, 10.0)) // 10px from right and top
+                .show(&ctx, |ui| {
                 ui.style_mut().spacing.slider_width = 250.0;
                 ui.horizontal(|ui| {
                     for &mode in RenderMode::ALL {
@@ -716,7 +719,9 @@ impl App {
                     );
                 }
             });
-            egui::Window::new("Stats").show(&ctx, |ui| {
+            egui::Window::new("Stats")
+                .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-10.0, 260.0)) // 10px from right and bottom
+                .show(&ctx, |ui| {
                 fn format_with_commas(n: u64) -> String {
                     let mut s = n.to_string();
 
