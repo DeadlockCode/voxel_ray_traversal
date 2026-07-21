@@ -149,7 +149,22 @@ fn get_swapchain_images(
             image_extent: window.inner_size().into(),
             image_usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST,
             composite_alpha,
-            present_mode: PresentMode::Immediate,
+            present_mode: {
+                let modes = device
+                    .physical_device()
+                    .surface_present_modes(surface, Default::default())
+                    .unwrap();
+                modes
+                    .iter()
+                    .find(|m| **m == PresentMode::Immediate)
+                    .copied()
+                    .unwrap_or_else(|| {
+                        eprintln!(
+                            "PresentMode::Immediate not supported, falling back to Fifo (supported: {modes:?})"
+                        );
+                        PresentMode::Fifo
+                    })
+            },
             ..Default::default()
         },
     )
